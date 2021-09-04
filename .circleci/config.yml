@@ -4,14 +4,16 @@ commands:
   destroy-environment:
     description: Destroy back-end and front-end cloudformation stacks given a workflow ID.
     parameters:
-      # Add parameter here   
+      stack-name:
+        description: stack name to be deleted
+        type: string
     steps:
       - run:
           name: Destroy environments
           when: on_fail
           command: |
-            # Your code here
-            exit 1
+            aws cloudformation delete-stack \
+              --stack-name << parameters.stack-name >>
 
   revert-migrations:
     description: Revert the last migration if successfully run in the current workflow.
@@ -133,14 +135,14 @@ jobs:
               --tags project=udapeople \
               --stack-name "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" \
               --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"
-      # - run:
-      #     name: Ensure front-end infrastructure exist
-      #     command: |
-      #       aws cloudformation deploy \
-      #         --template-file .circleci/files/frontend.yml \
-      #         --tags project=udapeople \
-      #         --stack-name "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" \
-      #         --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"
+      - run:
+          name: Ensure front-end infrastructure exist
+          command: |
+            aws cloudformation deploy \
+              --template-file .circleci/files/frontend.yml \
+              --tags project=udapeople \
+              --stack-name "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"
       - run:
           name: save backend url to memstash
           command: |
@@ -155,30 +157,34 @@ jobs:
             aws cloudformation list-exports \
               --query "Exports[?Name==\`BackEndPublicIP\`].Value" \
               --no-paginate --output text >> ~/project/.circleci/ansible/inventory.txt
+            exit 1
       - persist_to_workspace:
           root: ~/
           paths:
             - project/.circleci/ansible/inventory.txt
-      # Here's where you will add some code to rollback on failure      
+      - destroy-environment:
+          stack-name: "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}"
+      - destroy-environment:
+          stack-name: "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}"   
 
-  test_logic_to_save:
-    docker:
-      - image: amazon/aws-cli
-    steps:
-      - checkout
-      - run: yum install -y tar gzip
-      - attach_workspace:
-          at: ~/
-      - run:
-          name: test backend url
-          command: |
-            BACKEND_URL=$(curl -H "token: a2575172-4808-4e18-9482-27506ac651b0-backendurl" --request GET https://api.memstash.io/values/backendurl)
-            echo $BACKEND_URL
-      - run: 
-          name:
-          command: |
-            BACKEEND_IP=$(cat ~/project/.circleci/ansible/inventory.txt)
-            echo $BACKEEND_IP
+  # test_logic_to_save:
+  #   docker:
+  #     - image: amazon/aws-cli
+  #   steps:
+  #     - checkout
+  #     - run: yum install -y tar gzip
+  #     - attach_workspace:
+  #         at: ~/
+  #     - run:
+  #         name: test backend url
+  #         command: |
+  #           BACKEND_URL=$(curl -H "token: a2575172-4808-4e18-9482-27506ac651b0-backendurl" --request GET https://api.memstash.io/values/backendurl)
+  #           echo $BACKEND_URL
+  #     - run: 
+  #         name:
+  #         command: |
+  #           BACKEEND_IP=$(cat ~/project/.circleci/ansible/inventory.txt)
+  #           echo $BACKEEND_IP
 
 #   configure-infrastructure:
 #     docker:
@@ -327,8 +333,8 @@ workflows:
       #     requires: [build-frontend]
       - deploy-infrastructure
           # requires: [test-frontend, test-backend, scan-frontend, scan-backend]
-      - test_logic_to_save:
-          requires: [deploy-infrastructure]
+      # - test_logic_to_save:
+      #     requires: [deploy-infrastructure]
       # - configure-infrastructure:
       #     requires: [deploy-infrastructure]
       # - run-migrations:
