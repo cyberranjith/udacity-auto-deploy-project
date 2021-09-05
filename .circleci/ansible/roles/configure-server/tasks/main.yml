@@ -14,19 +14,17 @@
   apt:
     autoremove: yes
 
-- name: set environment variables in remote instance
-  become: yes
-  shell: |
-    export ENVIRONMENT=production
-    export TYPEORM_CONNECTION=$TYPEORM_CONNECTION
-    export TYPEORM_DATABASE=$TYPEORM_DATABASE
-
-- name: "install dependencies."
+- name: "install node and npm"
   become: yes
   apt:
-    name: ["nodejs", "npm"]
+    name: ["nodejs", "npm", "libcap2-bin"]
     state: latest
     update_cache: yes
+
+- name: "give safe permission to use port 80"
+  become: yes
+  shell: |
+    sudo setcap cap_net_bind_service=+ep `readlink -f \`which node\``
 
 - name: "install pm2"
   become: yes
