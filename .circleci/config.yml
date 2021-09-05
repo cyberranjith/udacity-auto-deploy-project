@@ -135,14 +135,14 @@ jobs:
               --tags project=udapeople \
               --stack-name "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" \
               --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"
-      # - run:
-      #     name: Ensure front-end infrastructure exist
-      #     command: |
-      #       aws cloudformation deploy \
-      #         --template-file .circleci/files/frontend.yml \
-      #         --tags project=udapeople \
-      #         --stack-name "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" \
-      #         --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"
+      - run:
+          name: Ensure front-end infrastructure exist
+          command: |
+            aws cloudformation deploy \
+              --template-file .circleci/files/frontend.yml \
+              --tags project=udapeople \
+              --stack-name "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"
       - run:
           name: save backend url to memstash
           command: |
@@ -163,8 +163,8 @@ jobs:
             - project/.circleci/ansible/inventory.txt
       - destroy-environment:
           stack-name: "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}"
-      # - destroy-environment:
-      #     stack-name: "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}"   
+      - destroy-environment:
+          stack-name: "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}"   
 
   test_caching_logic:
     docker:
@@ -209,8 +209,8 @@ jobs:
             ansible-playbook -i ~/project/.circleci/ansible/inventory.txt ~/project/.circleci/ansible/configure-server.yml
       - destroy-environment:
           stack-name: "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}"
-      # - destroy-environment:
-      #     stack-name: "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}"      
+      - destroy-environment:
+          stack-name: "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}"      
 
   run-migrations:
     docker:
@@ -232,57 +232,73 @@ jobs:
             echo TYPEORM_PASSWORD=$TYPEORM_PASSWORD >> ".env"
             echo TYPEORM_DATABASE=$TYPEORM_DATABASE >> ".env"
             npm install
-            touch migrations_log.txt
-            npm run migrations >> migrations_log.txt
-            cat migrations_log.txt
+            touch migrations_output_log.txt
+            npm run migrations >> migrations_output_log.txt
+            cat migrations_output_log.txt
 
       - run:
           name: Send migration results to memstash
           working_directory: ./backend
           command: |
-            if grep -q "has been executed successfully" migrations_log.txt; then 
+            if grep -q "has been executed successfully" migrations_output_log.txt; then 
               curl -H "Content-Type: text/plain" -H "token: a2575172-4808-4e18-9482-27506ac651b0" --request PUT --data "1" https://api.memstash.io/values/migration_${CIRCLE_WORKFLOW_ID:0:7}
             else
               curl -H "Content-Type: text/plain" -H "token: a2575172-4808-4e18-9482-27506ac651b0" --request PUT --data "0" https://api.memstash.io/values/migration_${CIRCLE_WORKFLOW_ID:0:7}
             fi
 
-#   deploy-frontend:
-#     docker:
-#       # Docker image here that supports AWS CLI
-#     steps:
-#       # Checkout code from git
-#       - run:
-#           name: Install dependencies
-#           command: |
-#             # your code here
-#       - run:
-#           name: Get backend url
-#           command: |
-#             # your code here
-#             export API_URL="http://${BACKEND_IP}:3030"
-#             echo "${API_URL}"
-#       - run:
-#           name: Deploy frontend objects
-#           command: |
-#             # your code here
-#       # Here's where you will add some code to rollback on failure      
+  deploy-frontend:
+    docker:
+      - image: python:3.7-alpine3.11
+    steps:
+      - checkout
+      - restore_cache:
+          keys: [frontend-build]
+      - run:
+          name: Install dependencies
+          working_directory: ./frontend
+          command: |
+            apk add --no-cache curl
+            apk add --no-cache --upgrade bash
+            apk add --no-cache --update npm
+            pip3 install awscli
+      - run:
+          name: get backend url and set as environment variable
+          working_directory: ./frontend
+          command: |
+            BACKEND_URL=$(curl -H "token: a2575172-4808-4e18-9482-27506ac651b0" --request GET https://api.memstash.io/values/backendurl_${CIRCLE_WORKFLOW_ID:0:7})
+            API_URL=https://$BACKEND_URL:3030
+            echo $API_URL
+            echo API_URL=$API_URL > ".env"       
+      - run:
+          name: Build & Deploy frontend objects
+          working_directory: ./frontend
+          command: |
+            npm install
+            npm run build
+            aws s3 cp dist s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
+      - destroy-environment:
+          stack-name: "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}"
+      - destroy-environment:
+          stack-name: "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}"    
                     
-#   deploy-backend:
-#     docker:
-#       # Docker image here that supports Ansible
-#     steps:
-#       # Checkout code from git
-#       # Add ssh keys with fingerprint
-#       # attach workspace
-#       - run:
-#           name: Install dependencies
-#           command: |
-#             # your code here
-#       - run:
-#           name: Deploy backend
-#           command: |
-#             # your code here
-#       # Here's where you will add some code to rollback on failure  
+  # deploy-backend:
+  #   docker:
+  #     - image: python:3.7-alpine3.11
+  #   steps:
+  #     - checkout
+  #     - add_ssh_keys:
+  #         fingerprints: ["8a:42:7a:17:c4:77:f5:51:d9:b4:a9:cf:dd:71:70:c2"]
+  #     - attach_workspace:
+  #         at: ~/
+  #     - run:
+  #         name: Install dependencies
+  #         command: |
+  #           apk add --update ansible
+  #     - run:
+  #         name: Deploy backend
+  #         command: |
+  #           # your code here
+      # Here's where you will add some code to rollback on failure  
 
 #   smoke-test:
 #     docker:
@@ -345,8 +361,8 @@ jobs:
 workflows:
   default:
     jobs:
-      # - build-frontend
-      # - build-backend
+      - build-frontend
+      - build-backend
       # - test-frontend:
       #     requires: [build-frontend]
       # - test-backend:
@@ -355,16 +371,16 @@ workflows:
       #     requires: [build-backend]
       # - scan-frontend:
       #     requires: [build-frontend]
-      # - deploy-infrastructure
+      - deploy-infrastructure:
+          requires: [build-frontend, build-backend]
           # requires: [test-frontend, test-backend, scan-frontend, scan-backend]
       # - configure-infrastructure:
       #     requires: [deploy-infrastructure]
-      - run-migrations
-          # requires: [configure-infrastructure]
-      - test_caching_logic:
-          requires: [run-migrations]
-      # - deploy-frontend:
-      #     requires: [run-migrations]
+      # - run-migrations:
+      #     requires: [configure-infrastructure]      
+      - deploy-frontend:
+          requires: [deploy-infrastructure]
+          # requires: [run-migrations]
       # - deploy-backend:
       #     requires: [run-migrations]
       # - smoke-test:
@@ -373,3 +389,5 @@ workflows:
       #     requires: [smoke-test]
       # - cleanup:
       #     requires: [cloudfront-update]
+      # - test_caching_logic:
+      #     requires: [run-migrations]

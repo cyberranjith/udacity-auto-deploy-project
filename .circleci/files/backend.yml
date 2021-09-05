@@ -43,7 +43,7 @@ Outputs:
 
     BackEndUrl:
       Description: Backend public URL
-      Value: !Join [ "", ["http://", !GetAtt EC2Instance.PublicDnsName]]
+      Value: !GetAtt EC2Instance.PublicDnsName
       Export:
         Name: BackEndUrl
 
