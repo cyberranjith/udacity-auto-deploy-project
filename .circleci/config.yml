@@ -135,14 +135,14 @@ jobs:
               --tags project=udapeople \
               --stack-name "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" \
               --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"
-      - run:
-          name: Ensure front-end infrastructure exist
-          command: |
-            aws cloudformation deploy \
-              --template-file .circleci/files/frontend.yml \
-              --tags project=udapeople \
-              --stack-name "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" \
-              --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"
+      # - run:
+      #     name: Ensure front-end infrastructure exist
+      #     command: |
+      #       aws cloudformation deploy \
+      #         --template-file .circleci/files/frontend.yml \
+      #         --tags project=udapeople \
+      #         --stack-name "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" \
+      #         --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"
       - run:
           name: save backend url to memstash
           command: |
@@ -221,7 +221,7 @@ jobs:
           name: Run migrations
           command: |
             cd backend
-            echo ENVIROMENT=$ENVIROMENT > ".env"
+            echo ENVIRONMENT=$ENVIRONMENT > ".env"
             echo TYPEORM_CONNECTION=$TYPEORM_CONNECTION >> ".env"
             echo TYPEORM_MIGRATIONS_DIR=$TYPEORM_MIGRATIONS_DIR >> ".env"
             echo TYPEORM_ENTITIES=$TYPEORM_ENTITIES >> ".env"
@@ -232,6 +232,7 @@ jobs:
             echo TYPEORM_PASSWORD=$TYPEORM_PASSWORD >> ".env"
             echo TYPEORM_DATABASE=$TYPEORM_DATABASE >> ".env"
             npm install
+            npm run build
             touch migrations_output_log.txt
             npm run migrations >> migrations_output_log.txt
             cat migrations_output_log.txt
@@ -281,47 +282,69 @@ jobs:
       - destroy-environment:
           stack-name: "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}"    
                     
-  # deploy-backend:
+  deploy-backend:
+    docker:
+      - image: python:3.7-alpine3.11
+    steps:
+      - checkout
+      - restore_cache:
+          keys: [backend-build]
+      - add_ssh_keys:
+          fingerprints: ["8a:42:7a:17:c4:77:f5:51:d9:b4:a9:cf:dd:71:70:c2"]
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Install dependencies
+          command: |
+            apk add --no-cache curl
+            apk add --no-cache --upgrade bash
+            apk add --no-cache --update npm
+            apk add --update ansible
+            pip3 install awscli
+      - run:
+          name: Deploy backend
+          command: |
+            echo ENVIRONMENT=$ENVIRONMENT > "backend/.env"
+            echo TYPEORM_CONNECTION=$TYPEORM_CONNECTION >> "backend/.env"
+            echo TYPEORM_MIGRATIONS_DIR=$TYPEORM_MIGRATIONS_DIR >> "backend/.env"
+            echo TYPEORM_ENTITIES=$TYPEORM_ENTITIES >> "backend/.env"
+            echo TYPEORM_MIGRATIONS=$TYPEORM_MIGRATIONS >> "backend/.env"
+            echo TYPEORM_HOST=$TYPEORM_HOST >> "backend/.env"
+            echo TYPEORM_PORT=$TYPEORM_PORT >> "backend/.env"
+            echo TYPEORM_USERNAME=$TYPEORM_USERNAME >> "backend/.env"
+            echo TYPEORM_PASSWORD=$TYPEORM_PASSWORD >> "backend/.env"
+            echo TYPEORM_DATABASE=$TYPEORM_DATABASE >> "backend/.env"
+            cat backend/.env
+            tar -C backend -zvcf backend.tar.gz .          
+            mkdir -p ~/project/.circleci/ansible/roles/deploy/files && cp backend.tar.gz ~/project/.circleci/ansible/roles/deploy/files
+            ansible-playbook -i ~/project/.circleci/ansible/inventory.txt ~/project/.circleci/ansible/deploy-backend.yml
+      - destroy-environment:
+          stack-name: "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}"
+      - destroy-environment:
+          stack-name: "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}"
+
+  # smoke-test:
   #   docker:
-  #     - image: python:3.7-alpine3.11
+  #     # Lightweight Docker image 
   #   steps:
-  #     - checkout
-  #     - add_ssh_keys:
-  #         fingerprints: ["8a:42:7a:17:c4:77:f5:51:d9:b4:a9:cf:dd:71:70:c2"]
-  #     - attach_workspace:
-  #         at: ~/
+  #     # Checkout code from git
   #     - run:
   #         name: Install dependencies
   #         command: |
-  #           apk add --update ansible
+  #           # your code here
   #     - run:
-  #         name: Deploy backend
+  #         name: Get backend url
+  #         command: |
+  #           # your code here
+  #     - run:
+  #         name: Backend smoke test.
+  #         command: |
+  #           # your code here
+  #     - run:
+  #         name: Frontend smoke test.
   #         command: |
   #           # your code here
       # Here's where you will add some code to rollback on failure  
-
-#   smoke-test:
-#     docker:
-#       # Lightweight Docker image 
-#     steps:
-#       # Checkout code from git
-#       - run:
-#           name: Install dependencies
-#           command: |
-#             # your code here
-#       - run:
-#           name: Get backend url
-#           command: |
-#             # your code here
-#       - run:
-#           name: Backend smoke test.
-#           command: |
-#             # your code here
-#       - run:
-#           name: Frontend smoke test.
-#           command: |
-#             # your code here
-#       # Here's where you will add some code to rollback on failure  
 
 #   cloudfront-update:
 #     docker:
@@ -361,7 +384,7 @@ jobs:
 workflows:
   default:
     jobs:
-      - build-frontend
+      # - build-frontend
       - build-backend
       # - test-frontend:
       #     requires: [build-frontend]
@@ -372,17 +395,16 @@ workflows:
       # - scan-frontend:
       #     requires: [build-frontend]
       - deploy-infrastructure:
-          requires: [build-frontend, build-backend]
+          requires: [build-backend]
           # requires: [test-frontend, test-backend, scan-frontend, scan-backend]
-      # - configure-infrastructure:
-      #     requires: [deploy-infrastructure]
-      # - run-migrations:
-      #     requires: [configure-infrastructure]      
-      - deploy-frontend:
+      - configure-infrastructure:
           requires: [deploy-infrastructure]
-          # requires: [run-migrations]
-      # - deploy-backend:
+      - run-migrations:
+          requires: [configure-infrastructure]      
+      # - deploy-frontend:
       #     requires: [run-migrations]
+      - deploy-backend:
+          requires: [run-migrations]
       # - smoke-test:
       #     requires: [deploy-backend, deploy-frontend]
       # - cloudfront-update:
