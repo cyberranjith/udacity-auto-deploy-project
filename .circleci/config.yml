@@ -150,7 +150,7 @@ jobs:
               --query "Exports[?Name==\`BackEndUrl\`].Value" \
               --no-paginate --output text)
             echo $BACKEND_URL
-            curl -H "Content-Type: text/plain" -H "token: a2575172-4808-4e18-9482-27506ac651b0-backendurl" --request PUT --data ${BACKEND_URL} https://api.memstash.io/values/backendurl
+            curl -H "Content-Type: text/plain" -H "token: a2575172-4808-4e18-9482-27506ac651b0" --request PUT --data ${BACKEND_URL} https://api.memstash.io/values/backendurl_${CIRCLE_WORKFLOW_ID:0:7}
       - run:
           name: Add back-end public ip to ansible inventory
           command: |
@@ -166,24 +166,29 @@ jobs:
       # - destroy-environment:
       #     stack-name: "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}"   
 
-  # test_logic_to_save:
-  #   docker:
-  #     - image: amazon/aws-cli
-  #   steps:
-  #     - checkout
-  #     - run: yum install -y tar gzip
-  #     - attach_workspace:
-  #         at: ~/
-  #     - run:
-  #         name: test backend url
-  #         command: |
-  #           BACKEND_URL=$(curl -H "token: a2575172-4808-4e18-9482-27506ac651b0-backendurl" --request GET https://api.memstash.io/values/backendurl)
-  #           echo $BACKEND_URL
-  #     - run: 
-  #         name:
-  #         command: |
-  #           BACKEEND_IP=$(cat ~/project/.circleci/ansible/inventory.txt)
-  #           echo $BACKEEND_IP
+  test_caching_logic:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - run: yum install -y tar gzip
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: test backend url
+          command: |
+            BACKEND_URL=$(curl -H "token: a2575172-4808-4e18-9482-27506ac651b0" --request GET https://api.memstash.io/values/backendurl_${CIRCLE_WORKFLOW_ID:0:7})
+            echo $BACKEND_URL
+      - run: 
+          name:
+          command: |
+            BACKEEND_IP=$(cat ~/project/.circleci/ansible/inventory.txt)
+            echo $BACKEEND_IP
+      - run:
+          name:
+          command: |
+            DB_MIGRATION_STATUS=$(curl -H "token: a2575172-4808-4e18-9482-27506ac651b0" --request GET https://api.memstash.io/values/migration_${CIRCLE_WORKFLOW_ID:0:7})
+            echo "${DB_MIGRATION_STATUS}"
 
   configure-infrastructure:
     docker:
@@ -202,24 +207,44 @@ jobs:
           name: Configure server
           command: |
             ansible-playbook -i ~/project/.circleci/ansible/inventory.txt ~/project/.circleci/ansible/configure-server.yml
-      # Here's where you will add some code to rollback on failure      
+      - destroy-environment:
+          stack-name: "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}"
+      # - destroy-environment:
+      #     stack-name: "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}"      
 
-#   run-migrations:
-#     docker:
-#       # Docker image here that supports NodeJS
-#     steps:
-#       # Checkout code from git
-#       - run:
-#           name: Run migrations
-#           command: |
-#             # Your code here
-#             exit 1
-#       - run:
-#           name: Send migration results to memstash
-#           command: |
-#             # Your code here
-#             exit 1
-#      # Here's where you will add some code to rollback on failure      
+  run-migrations:
+    docker:
+      - image: circleci/node:13.8.0
+    steps:
+      - checkout
+      - run:
+          name: Run migrations
+          command: |
+            cd backend
+            echo ENVIROMENT=$ENVIROMENT > ".env"
+            echo TYPEORM_CONNECTION=$TYPEORM_CONNECTION >> ".env"
+            echo TYPEORM_MIGRATIONS_DIR=$TYPEORM_MIGRATIONS_DIR >> ".env"
+            echo TYPEORM_ENTITIES=$TYPEORM_ENTITIES >> ".env"
+            echo TYPEORM_MIGRATIONS=$TYPEORM_MIGRATIONS >> ".env"
+            echo TYPEORM_HOST=$TYPEORM_HOST >> ".env"
+            echo TYPEORM_PORT=$TYPEORM_PORT >> ".env"
+            echo TYPEORM_USERNAME=$TYPEORM_USERNAME >> ".env"
+            echo TYPEORM_PASSWORD=$TYPEORM_PASSWORD >> ".env"
+            echo TYPEORM_DATABASE=$TYPEORM_DATABASE >> ".env"
+            npm install
+            touch migrations_log.txt
+            npm run migrations >> migrations_log.txt
+            cat migrations_log.txt
+
+      - run:
+          name: Send migration results to memstash
+          working_directory: ./backend
+          command: |
+            if grep -q "has been executed successfully" migrations_log.txt; then 
+              curl -H "Content-Type: text/plain" -H "token: a2575172-4808-4e18-9482-27506ac651b0" --request PUT --data "1" https://api.memstash.io/values/migration_${CIRCLE_WORKFLOW_ID:0:7}
+            else
+              curl -H "Content-Type: text/plain" -H "token: a2575172-4808-4e18-9482-27506ac651b0" --request PUT --data "0" https://api.memstash.io/values/migration_${CIRCLE_WORKFLOW_ID:0:7}
+            fi
 
 #   deploy-frontend:
 #     docker:
@@ -330,14 +355,14 @@ workflows:
       #     requires: [build-backend]
       # - scan-frontend:
       #     requires: [build-frontend]
-      - deploy-infrastructure
+      # - deploy-infrastructure
           # requires: [test-frontend, test-backend, scan-frontend, scan-backend]
-      # - test_logic_to_save:
+      # - configure-infrastructure:
       #     requires: [deploy-infrastructure]
-      - configure-infrastructure:
-          requires: [deploy-infrastructure]
-      # - run-migrations:
-      #     requires: [configure-infrastructure]
+      - run-migrations
+          # requires: [configure-infrastructure]
+      - test_caching_logic:
+          requires: [run-migrations]
       # - deploy-frontend:
       #     requires: [run-migrations]
       # - deploy-backend:

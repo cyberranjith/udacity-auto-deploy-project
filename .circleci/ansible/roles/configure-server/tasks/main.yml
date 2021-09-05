@@ -24,7 +24,7 @@
 - name: "give safe permission to use port 80"
   become: yes
   shell: |
-    sudo setcap cap_net_bind_service=+ep `readlink -f \`which node\``
+    setcap cap_net_bind_service=+ep `readlink -f \`which node\``
 
 - name: "install pm2"
   become: yes
