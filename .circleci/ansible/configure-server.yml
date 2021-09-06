@@ -25,13 +25,5 @@
     - name: "wait 10 seconds for target connection to become reachable/usable."
       command: sleep 10
 
-  # tasks:
-  #   - name: printing multiple environment variables
-  #     debug: 
-  #       msg: "{{ lookup('env', 'ENVIRONMENT', 'TYPEORM_CONNECTION', 'TYPEORM_ENTITIES', 'TYPEORM_HOST', 'TYPEORM_PORT') }}"
-  #   - name: printing all the variables from remote
-  #     debug:
-  #       msg: "{{ ansible_env }}"
-
   roles:
     - configure-server
