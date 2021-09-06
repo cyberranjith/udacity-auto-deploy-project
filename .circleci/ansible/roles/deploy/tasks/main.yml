@@ -23,8 +23,8 @@
     cmd: npm run build
     chdir: /etc/autodeploy
 
-# - name: "run backend"
-#   become: yes 
-#   command: pm2 start npm run start-prod
-#   args:
-#       chdir: ~/autodeploy
+- name: "run backend"
+  become: yes 
+  command: pm2 start dist/main.js
+  args:
+      chdir: /etc/autodeploy
