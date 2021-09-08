@@ -1,0 +1,5 @@
+URL01 - Public GitHub Repository - https://app.circleci.com/pipelines/github/cyberranjith/udacity-auto-deploy-project
+URL02 - Public URL of S3 Bucket - http://udapeople-a8a7e2f.s3-website-us-east-1.amazonaws.com
+URL03 - Public URL of CloudFront distribution - https://d3zsxex6dmk1h.cloudfront.net
+URL04 - Public URL of back-end server in EC2 - http://ec2-18-234-212-219.compute-1.amazonaws.com:3030/api/status/
+URL05 - Public URL to Prometheus server - http://ec2-100-24-61-252.compute-1.amazonaws.com:9090/
