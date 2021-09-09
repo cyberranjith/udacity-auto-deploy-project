@@ -193,7 +193,6 @@ jobs:
           command: |
             cd backend
             echo ENVIRONMENT=$ENVIRONMENT > ".env"
-            echo NODE_ENV=$ENVIRONMENT > ".env"
             echo TYPEORM_CONNECTION=$TYPEORM_CONNECTION >> ".env"
             echo TYPEORM_MIGRATIONS_DIR=$TYPEORM_MIGRATIONS_DIR >> ".env"
             echo TYPEORM_ENTITIES=$TYPEORM_ENTITIES >> ".env"
@@ -277,7 +276,6 @@ jobs:
           name: Deploy backend
           command: |
             echo ENVIRONMENT=$ENVIRONMENT > "backend/.env"
-            echo NODE_ENV=$ENVIRONMENT > "backend/.env"
             echo TYPEORM_CONNECTION=$TYPEORM_CONNECTION >> "backend/.env"
             echo TYPEORM_MIGRATIONS_DIR=$TYPEORM_MIGRATIONS_DIR >> "backend/.env"
             echo TYPEORM_ENTITIES=$TYPEORM_ENTITIES >> "backend/.env"
@@ -397,8 +395,7 @@ jobs:
   #         name:
   #         command: |
   #           DB_MIGRATION_STATUS=$(curl -H "token: a2575172-4808-4e18-9482-27506ac651b0" --request GET https://api.memstash.io/values/migration_${CIRCLE_WORKFLOW_ID:0:7})
-  #           echo "${DB_MIGRATION_STATUS}"
-            
+  #           echo "${DB_MIGRATION_STATUS}"            
 
 workflows:
   default:

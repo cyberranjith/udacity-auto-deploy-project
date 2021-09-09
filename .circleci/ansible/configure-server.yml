@@ -11,7 +11,6 @@
 
   environment:
     ENVIRONMENT: "{{ lookup('env','ENVIRONMENT') }}"
-    NODE_ENV: "{{ lookup('env','ENVIRONMENT') }}" 
     TYPEORM_CONNECTION: "{{ lookup('env','TYPEORM_CONNECTION') }}"
     TYPEORM_ENTITIES: "{{ lookup('env','TYPEORM_ENTITIES') }}"
     TYPEORM_HOST: "{{ lookup('env','TYPEORM_HOST') }}"
@@ -23,8 +22,8 @@
     TYPEORM_MIGRATIONS_DIR: "{{ lookup('env','TYPEORM_MIGRATIONS_DIR') }}"
 
   pre_tasks:
-    - name: "wait 10 seconds for target connection to become reachable/usable."
-      command: sleep 10
+    - name: "wait 60 seconds for target connection to become reachable/usable."
+      command: sleep 60
 
   roles:
     - configure-server
